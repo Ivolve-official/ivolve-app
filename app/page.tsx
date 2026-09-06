@@ -1,4 +1,5 @@
-export default function Home() {
+
+import WalletButton from "./wallet-button";export default function Home() {
   return (
     <main className="min-h-screen bg-[#07080a] text-white">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 lg:px-8">
@@ -24,9 +25,7 @@ export default function Home() {
           </a>
         </div>
 
-        <button className="rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-medium backdrop-blur transition hover:bg-white/10">
-          Connect wallet
-        </button>
+        <WalletButton />
       </nav>
 
       <section className="relative overflow-hidden">
