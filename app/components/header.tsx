@@ -7,13 +7,15 @@ import WalletButton from "../wallet-button";
 export default function Header() {
   const { address, isConnected } = useAccount();
 
-  const profileUrl = isConnected && address
-    ? `/profile/${address}`
-    : "/profile/demo";
+  const profileUrl =
+    isConnected && address
+      ? `/profile/${address}`
+      : "/";
 
-  const wrappedUrl = isConnected && address
-    ? `/wrapped/${address}`
-    : "/wrapped/demo";
+  const wrappedUrl =
+    isConnected && address
+      ? `/wrapped/${address}`
+      : "/";
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[#050505]/90 backdrop-blur-xl">

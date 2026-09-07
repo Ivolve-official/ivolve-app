@@ -1,17 +1,75 @@
 import Link from "next/link";
 import Header from "../../components/header";
 
+import { supabaseAdmin } from "@/lib/supabase-admin";
+import { syncWalletActivity } from "@/lib/blockchain/sync";
+
+type WrappedPageProps = {
+  params: Promise<{ wallet: string }>;
+};
+
+export const dynamic = "force-dynamic";
+
+function shortenWallet(wallet: string) {
+  return wallet.length > 12
+    ? `${wallet.slice(0, 6)}...${wallet.slice(-4)}`
+    : wallet;
+}
+
 export default async function WrappedPage({
   params,
-}: {
-  params: Promise<{ wallet: string }>;
-}) {
+}: WrappedPageProps) {
   const { wallet } = await params;
 
-  const shortenedWallet =
-    wallet.length > 12
-      ? `${wallet.slice(0, 6)}...${wallet.slice(-4)}`
-      : wallet;
+  const normalizedWallet = wallet.toLowerCase();
+
+  let activityCount = 0;
+  let attestationCount = 0;
+  let pointsTotal = 0;
+
+  try {
+    const [baseActivity, baseSepoliaActivity] =
+      await Promise.all([
+        syncWalletActivity(normalizedWallet, "base"),
+        syncWalletActivity(normalizedWallet, "base-sepolia"),
+      ]);
+
+    activityCount =
+      baseActivity.synced + baseSepoliaActivity.synced;
+
+    const { data: attestations, error: attestationError } =
+      await supabaseAdmin
+        .from("attestations_cache")
+        .select("id")
+        .eq("wallet", normalizedWallet);
+
+    if (!attestationError) {
+      attestationCount = attestations?.length ?? 0;
+    }
+
+    const { data: pointsEvents, error: pointsError } =
+      await supabaseAdmin
+        .from("points_events")
+        .select("weight")
+        .eq("wallet", normalizedWallet);
+
+    if (!pointsError) {
+      pointsTotal =
+        pointsEvents?.reduce(
+          (total, event) => total + (event.weight ?? 0),
+          0
+        ) ?? 0;
+    }
+  } catch {
+    // Keep the Wrapped page renderable even if a live data
+    // provider temporarily fails.
+  }
+
+  const shortenedWallet = shortenWallet(normalizedWallet);
+
+  const hasActivity = activityCount > 0;
+  const hasAttestations = attestationCount > 0;
+  const hasPoints = pointsTotal > 0;
 
   return (
     <main className="min-h-screen bg-[#050505] text-white">
@@ -50,8 +108,8 @@ export default async function WrappedPage({
                   </p>
                 </div>
 
-                <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-300">
-                  Verified
+                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/40">
+                  Live data
                 </span>
               </div>
             </div>
@@ -63,9 +121,9 @@ export default async function WrappedPage({
               </p>
 
               <h1 className="mt-4 max-w-4xl text-5xl font-semibold leading-[0.95] tracking-[-0.06em] sm:text-7xl">
-                You didn&apos;t just use Web3.
+                Your on-chain history.
                 <span className="block text-white/35">
-                  You built a reputation.
+                  Your reputation in progress.
                 </span>
               </h1>
 
@@ -77,16 +135,17 @@ export default async function WrappedPage({
 
                 <div className="mt-3 flex flex-wrap items-end gap-5">
                   <span className="text-8xl font-semibold tracking-[-0.08em] sm:text-9xl">
-                    842
+                    —
                   </span>
 
-                  <span className="mb-4 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-300">
-                    Excellent
+                  <span className="mb-4 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/45">
+                    Building
                   </span>
                 </div>
 
-                <p className="mt-4 text-sm text-emerald-300">
-                  Top 8% of Ivolve profiles
+                <p className="mt-4 text-sm text-white/30">
+                  Your reputation score will appear once the scoring
+                  engine is live.
                 </p>
               </div>
 
@@ -94,11 +153,25 @@ export default async function WrappedPage({
               <div className="mt-16 grid gap-4 sm:grid-cols-3">
                 <div className="rounded-3xl border border-white/10 bg-black/20 p-6">
                   <p className="text-xs text-white/30">
+                    On-chain activity
+                  </p>
+
+                  <p className="mt-3 text-3xl font-semibold">
+                    {activityCount.toLocaleString()}
+                  </p>
+
+                  <p className="mt-2 text-xs text-white/25">
+                    Base + Base Sepolia
+                  </p>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-black/20 p-6">
+                  <p className="text-xs text-white/30">
                     Attestations
                   </p>
 
                   <p className="mt-3 text-3xl font-semibold">
-                    27
+                    {attestationCount.toLocaleString()}
                   </p>
 
                   <p className="mt-2 text-xs text-white/25">
@@ -112,25 +185,11 @@ export default async function WrappedPage({
                   </p>
 
                   <p className="mt-3 text-3xl font-semibold">
-                    12,480
+                    {pointsTotal.toLocaleString()}
                   </p>
 
                   <p className="mt-2 text-xs text-white/25">
                     Reputation ledger
-                  </p>
-                </div>
-
-                <div className="rounded-3xl border border-white/10 bg-black/20 p-6">
-                  <p className="text-xs text-white/30">
-                    Opportunities
-                  </p>
-
-                  <p className="mt-3 text-3xl font-semibold">
-                    08
-                  </p>
-
-                  <p className="mt-2 text-xs text-white/25">
-                    Discovered
                   </p>
                 </div>
               </div>
@@ -138,7 +197,7 @@ export default async function WrappedPage({
               {/* ================= BREAKDOWN ================= */}
               <div className="mt-16">
                 <p className="text-xs uppercase tracking-[0.2em] text-white/30">
-                  What shaped your score
+                  What we know so far
                 </p>
 
                 <div className="mt-8 space-y-7">
@@ -150,13 +209,19 @@ export default async function WrappedPage({
                         On-chain activity
                       </span>
 
-                      <span className="text-white/70">
-                        92
+                      <span className="text-white/50">
+                        {hasActivity ? "Detected" : "None detected"}
                       </span>
                     </div>
 
                     <div className="h-2 rounded-full bg-white/5">
-                      <div className="h-full w-[92%] rounded-full bg-emerald-400" />
+                      <div
+                        className={`h-full rounded-full ${
+                          hasActivity
+                            ? "w-full bg-emerald-400"
+                            : "w-0"
+                        }`}
+                      />
                     </div>
                   </div>
 
@@ -167,37 +232,53 @@ export default async function WrappedPage({
                         Attestations
                       </span>
 
-                      <span className="text-white/70">
-                        84
+                      <span className="text-white/50">
+                        {hasAttestations
+                          ? "Detected"
+                          : "None detected"}
                       </span>
                     </div>
 
                     <div className="h-2 rounded-full bg-white/5">
-                      <div className="h-full w-[84%] rounded-full bg-emerald-400" />
+                      <div
+                        className={`h-full rounded-full ${
+                          hasAttestations
+                            ? "w-full bg-emerald-400"
+                            : "w-0"
+                        }`}
+                      />
                     </div>
                   </div>
 
-                  {/* Contributions */}
+                  {/* Points */}
                   <div>
                     <div className="mb-3 flex justify-between text-sm">
                       <span className="text-white/50">
                         Contributions
                       </span>
 
-                      <span className="text-white/70">
-                        78
+                      <span className="text-white/50">
+                        {hasPoints
+                          ? "Points recorded"
+                          : "No points yet"}
                       </span>
                     </div>
 
                     <div className="h-2 rounded-full bg-white/5">
-                      <div className="h-full w-[78%] rounded-full bg-emerald-400" />
+                      <div
+                        className={`h-full rounded-full ${
+                          hasPoints
+                            ? "w-full bg-emerald-400"
+                            : "w-0"
+                        }`}
+                      />
                     </div>
                   </div>
 
                 </div>
               </div>
 
-              {/* ================= ACHIEVEMENTS ================= */}
+              {/* ================= HIGHLIGHTS ================= */}
               <div className="mt-16">
                 <p className="text-xs uppercase tracking-[0.2em] text-white/30">
                   Highlights
@@ -205,61 +286,79 @@ export default async function WrappedPage({
 
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
 
+                  {/* Activity */}
                   <div className="rounded-3xl border border-white/10 bg-black/20 p-6">
                     <p className="text-xs text-emerald-300">
                       01
                     </p>
 
                     <h3 className="mt-4 text-lg font-semibold">
-                      Consistent contributor
+                      On-chain presence
                     </h3>
 
                     <p className="mt-2 text-sm leading-6 text-white/35">
-                      Your activity shows consistent participation across
-                      the ecosystem.
+                      {hasActivity
+                        ? `Ivolve detected ${activityCount.toLocaleString()} on-chain ${
+                            activityCount === 1
+                              ? "activity"
+                              : "activities"
+                          } across Base networks.`
+                        : "No indexed on-chain activity has been detected yet."}
                     </p>
                   </div>
 
+                  {/* Attestations */}
                   <div className="rounded-3xl border border-white/10 bg-black/20 p-6">
                     <p className="text-xs text-emerald-300">
                       02
                     </p>
 
                     <h3 className="mt-4 text-lg font-semibold">
-                      Verified reputation
+                      Verified signals
                     </h3>
 
                     <p className="mt-2 text-sm leading-6 text-white/35">
-                      Your reputation is supported by verified attestations.
+                      {hasAttestations
+                        ? `Your wallet has ${attestationCount.toLocaleString()} ${
+                            attestationCount === 1
+                              ? "attestation"
+                              : "attestations"
+                          } recorded in Ivolve.`
+                        : "Your attestation history has not been indexed yet."}
                     </p>
                   </div>
 
+                  {/* Points */}
                   <div className="rounded-3xl border border-white/10 bg-black/20 p-6">
                     <p className="text-xs text-emerald-300">
                       03
                     </p>
 
                     <h3 className="mt-4 text-lg font-semibold">
-                      Opportunity ready
+                      Reputation ledger
                     </h3>
 
                     <p className="mt-2 text-sm leading-6 text-white/35">
-                      Your reputation qualifies you for multiple ecosystem
-                      opportunities.
+                      {hasPoints
+                        ? `Your Ivolve ledger currently contains ${pointsTotal.toLocaleString()} points.`
+                        : "Your Ivolve points ledger does not have recorded points yet."}
                     </p>
                   </div>
 
+                  {/* Score */}
                   <div className="rounded-3xl border border-white/10 bg-black/20 p-6">
                     <p className="text-xs text-emerald-300">
                       04
                     </p>
 
                     <h3 className="mt-4 text-lg font-semibold">
-                      Reputation momentum
+                      Reputation in progress
                     </h3>
 
                     <p className="mt-2 text-sm leading-6 text-white/35">
-                      Your reputation continues to compound through activity.
+                      The Ivolve reputation engine is still being
+                      built. Your verified signals will feed into
+                      it once scoring is live.
                     </p>
                   </div>
 
@@ -267,7 +366,7 @@ export default async function WrappedPage({
               </div>
             </div>
 
-            {/* ================= CARD FOOTER ================= */}
+            {/* Card Footer */}
             <div className="border-t border-white/10 px-8 py-7 sm:px-12">
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
 
@@ -310,6 +409,7 @@ export default async function WrappedPage({
               See the leaderboard →
             </Link>
           </div>
+
         </div>
       </section>
     </main>

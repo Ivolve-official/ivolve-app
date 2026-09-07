@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useAccount } from "wagmi";
+
 import Header from "../components/header";
 import WalletButton from "../wallet-button";
 
@@ -9,7 +10,7 @@ export default function MintPage() {
   const { address, isConnected } = useAccount();
 
   const profileUrl =
-    isConnected && address ? `/profile/${address}` : "/profile/demo";
+    isConnected && address ? `/profile/${address}` : "/";
 
   return (
     <main className="min-h-screen bg-[#050505] text-white">

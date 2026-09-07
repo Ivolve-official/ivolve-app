@@ -1,65 +1,38 @@
-"use client";
-
 import Link from "next/link";
-import { useAccount } from "wagmi";
 import Header from "../components/header";
 
-const opportunities = [
-  {
-    name: "Protocol Alpha",
-    category: "Ecosystem",
-    reward: "+500 pts",
-    status: "Eligible",
-    description:
-      "Explore a new ecosystem opportunity based on your current reputation.",
-  },
-  {
-    name: "Protocol Beta",
-    category: "Community",
-    reward: "+350 pts",
-    status: "Available",
-    description:
-      "Participate in community activity and strengthen your reputation.",
-  },
-  {
-    name: "Protocol Gamma",
-    category: "Early Access",
-    reward: "+250 pts",
-    status: "Explore",
-    description:
-      "Discover an early opportunity available to active wallets.",
-  },
-  {
-    name: "Builder Network",
-    category: "Contribution",
-    reward: "+700 pts",
-    status: "Eligible",
-    description:
-      "Contribute to the ecosystem and earn additional reputation points.",
-  },
-  {
-    name: "Base Community",
-    category: "Community",
-    reward: "+400 pts",
-    status: "Available",
-    description:
-      "Connect with the Base ecosystem through verified activity.",
-  },
-  {
-    name: "Ivolve Quest",
-    category: "Ivolve",
-    reward: "+1,000 pts",
-    status: "Coming soon",
-    description:
-      "A future Ivolve-native reputation challenge.",
-  },
-];
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
-export default function DashboardPage() {
-  const { address, isConnected } = useAccount();
+export const dynamic = "force-dynamic";
 
-  const profileUrl =
-    isConnected && address ? `/profile/${address}` : "/profile/demo";
+type Protocol = {
+  id: string;
+  name: string;
+  chain: string;
+  contract_address: string | null;
+  category: string | null;
+  snapshot_notes: string | null;
+  active: boolean;
+};
+
+function createSlug(name: string) {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+export default async function OpportunitiesPage() {
+  const { data: protocols, error } = await supabaseAdmin
+    .from("protocols_tracked")
+    .select(
+      "id, name, chain, contract_address, category, snapshot_notes, active"
+    )
+    .eq("active", true)
+    .order("name", { ascending: true });
+
+  const opportunities: Protocol[] = protocols ?? [];
 
   return (
     <main className="min-h-screen bg-[#050505] text-white">
@@ -79,8 +52,8 @@ export default function DashboardPage() {
           </h1>
 
           <p className="mt-6 max-w-2xl text-base leading-7 text-white/40 sm:text-lg">
-            Discover ecosystems, contributions, and opportunities that match
-            the reputation you are building on-chain.
+            Discover ecosystems, contributions, and opportunities that
+            connect with the reputation you are building on-chain.
           </p>
         </div>
       </section>
@@ -88,43 +61,54 @@ export default function DashboardPage() {
       {/* ================= STATS ================= */}
       <section className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
         <div className="grid gap-4 sm:grid-cols-3">
+
+          {/* Available */}
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-7 transition hover:border-white/20 hover:bg-white/[0.05]">
-            <p className="text-sm text-white/35">Available</p>
+            <p className="text-sm text-white/35">
+              Tracked
+            </p>
 
             <p className="mt-3 text-4xl font-semibold">
-              08
+              {opportunities.length.toLocaleString()}
             </p>
 
             <p className="mt-2 text-xs text-white/25">
-              Opportunities to explore
+              Active ecosystem records
             </p>
           </div>
 
+          {/* Networks */}
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-7 transition hover:border-white/20 hover:bg-white/[0.05]">
-            <p className="text-sm text-white/35">Eligible</p>
+            <p className="text-sm text-white/35">
+              Networks
+            </p>
 
             <p className="mt-3 text-4xl font-semibold">
-              03
+              {new Set(
+                opportunities.map((opportunity) => opportunity.chain)
+              ).size.toLocaleString()}
             </p>
 
             <p className="mt-2 text-xs text-emerald-300">
-              Ready to claim
+              Networks with tracked protocols
             </p>
           </div>
 
+          {/* Status */}
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-7 transition hover:border-white/20 hover:bg-white/[0.05]">
             <p className="text-sm text-white/35">
-              Potential points
+              Status
             </p>
 
             <p className="mt-3 text-4xl font-semibold">
-              3.1K
+              Live
             </p>
 
             <p className="mt-2 text-xs text-white/25">
-              Available across opportunities
+              Showing database records
             </p>
           </div>
+
         </div>
       </section>
 
@@ -137,55 +121,86 @@ export default function DashboardPage() {
             </p>
 
             <h2 className="mt-2 text-2xl font-semibold">
-              Recommended opportunities
+              Tracked opportunities
             </h2>
           </div>
 
           <span className="hidden text-sm text-white/30 sm:block">
-            Based on reputation
+            Based on tracked ecosystem data
           </span>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {opportunities.map((opportunity) => (
-            <Link
-              key={opportunity.name}
-              href={`/opportunities/${opportunity.name
-                 .toLowerCase()
-                    .replace(/\s+/g, "-")}`}
-                    
-              className="group rounded-3xl border border-white/10 bg-white/[0.03] p-7 transition hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.05]"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/40">
-                  {opportunity.category}
-                </span>
+        {/* Error state */}
+        {error && (
+          <div className="rounded-3xl border border-red-400/20 bg-red-400/[0.04] p-8">
+            <p className="text-sm font-medium text-white/70">
+              Unable to load opportunities.
+            </p>
 
-                <span className="text-xs text-emerald-300">
-                  {opportunity.reward}
-                </span>
-              </div>
+            <p className="mt-2 text-sm leading-6 text-white/35">
+              Ivolve could not retrieve the current tracked ecosystem
+              data. Please try again later.
+            </p>
+          </div>
+        )}
 
-              <h3 className="mt-9 text-xl font-semibold">
-                {opportunity.name}
-              </h3>
+        {/* Empty state */}
+        {!error && opportunities.length === 0 && (
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] px-6 py-20 text-center">
+            <p className="text-sm font-medium text-white/60">
+              Opportunities are being built.
+            </p>
 
-              <p className="mt-3 min-h-12 text-sm leading-6 text-white/35">
-                {opportunity.description}
-              </p>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-white/30">
+              Ivolve will show real ecosystem opportunities here once
+              protocols have been added to the tracked database.
+            </p>
+          </div>
+        )}
 
-              <div className="mt-7 flex items-center justify-between">
-                <span className="text-xs text-white/30">
-                  {opportunity.status}
-                </span>
+        {/* Real opportunities */}
+        {!error && opportunities.length > 0 && (
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {opportunities.map((opportunity) => (
+              <Link
+                key={opportunity.id}
+                href={`/opportunities/${createSlug(
+                  opportunity.name
+                )}`}
+                className="group rounded-3xl border border-white/10 bg-white/[0.03] p-7 transition hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.05]"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/40">
+                    {opportunity.category || "Ecosystem"}
+                  </span>
 
-                <span className="rounded-full border border-white/10 px-4 py-2 text-xs font-medium text-white/70 transition group-hover:border-white/20 group-hover:bg-white/[0.06] group-hover:text-white">
-                  Explore →
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
+                  <span className="text-xs text-emerald-300">
+                    {opportunity.chain}
+                  </span>
+                </div>
+
+                <h3 className="mt-9 text-xl font-semibold">
+                  {opportunity.name}
+                </h3>
+
+                <p className="mt-3 min-h-12 text-sm leading-6 text-white/35">
+                  {opportunity.snapshot_notes ||
+                    "Tracked ecosystem opportunity in Ivolve."}
+                </p>
+
+                <div className="mt-7 flex items-center justify-between">
+                  <span className="text-xs text-white/30">
+                    Tracked
+                  </span>
+
+                  <span className="rounded-full border border-white/10 px-4 py-2 text-xs font-medium text-white/70 transition group-hover:border-white/20 group-hover:bg-white/[0.06] group-hover:text-white">
+                    Explore →
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* ================= CTA ================= */}
@@ -202,15 +217,16 @@ export default function DashboardPage() {
               </h2>
 
               <p className="mt-2 text-sm text-white/35">
-                Review your reputation score, attestations, and contributions.
+                Review your on-chain activity, attestations, and
+                contributions.
               </p>
             </div>
 
             <Link
-              href={profileUrl}
+              href="/"
               className="inline-flex w-fit rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
             >
-              View profile →
+              Connect wallet →
             </Link>
           </div>
         </div>
@@ -222,26 +238,11 @@ export default function DashboardPage() {
           <span>© 2026 Ivolve</span>
 
           <div className="flex flex-wrap gap-5">
-            <Link href="/" className="transition hover:text-white">
+            <Link
+              href="/"
+              className="transition hover:text-white"
+            >
               Home
-            </Link>
-
-            <Link
-              href={profileUrl}
-              className="transition hover:text-white"
-            >
-              Profile
-            </Link>
-
-            <Link
-              href={
-                isConnected && address
-                  ? `/wrapped/${address}`
-                  : "/wrapped/demo"
-              }
-              className="transition hover:text-white"
-            >
-              Wrapped
             </Link>
 
             <Link

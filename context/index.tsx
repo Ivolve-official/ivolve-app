@@ -1,7 +1,8 @@
 "use client";
 
 import { createAppKit } from "@reown/appkit/react";
-import { base, baseSepolia } from "@reown/appkit/networks";import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { base, baseSepolia } from "@reown/appkit/networks";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { type ReactNode } from "react";
 import { WagmiProvider } from "wagmi";
 
@@ -11,7 +12,8 @@ const queryClient = new QueryClient();
 
 const metadata = {
   name: "Ivolve",
-  description: "Your on-chain identity, reputation, and opportunity layer.",
+  description:
+    "Your on-chain identity, reputation, and opportunity layer.",
   url: "http://localhost:3000",
   icons: [],
 };
@@ -19,7 +21,7 @@ const metadata = {
 createAppKit({
   adapters: [wagmiAdapter],
   projectId,
-networks: [base, baseSepolia],
+  networks: [base, baseSepolia],
   defaultNetwork: baseSepolia,
   metadata,
   features: {
