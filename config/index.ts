@@ -1,7 +1,6 @@
 import { cookieStorage, createStorage } from "@wagmi/core";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
-import { baseSepolia } from "@reown/appkit/networks";
-
+import { base, baseSepolia } from "@reown/appkit/networks";
 const envProjectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID;
 
 if (!envProjectId) {
@@ -10,7 +9,7 @@ if (!envProjectId) {
 
 export const projectId: string = envProjectId;
 
-export const networks = [baseSepolia];
+export const networks = [base, baseSepolia];
 
 export const wagmiAdapter = new WagmiAdapter({
   storage: createStorage({
